@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrar Exámenes - VikingDev</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-900 transition-colors duration-300">
+    <!-- Navbar -->
+    <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-2xl font-bold text-primary">VikingDev<span class="text-gray-500 dark:text-gray-400">Admin</span></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="examenes.html" class="text-gray-600 dark:text-gray-300 hover:text-primary transition-colors">Ver Exámenes</a>
+                    <button id="themeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:block"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Sidebar / Quick Actions -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Manage Subjects & Levels -->
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm animate-fade-in">
+                    <h2 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-layer-group mr-2 text-primary"></i> Materias y Niveles
+                    </h2>
+
+                    <div class="space-y-4">
+                        <!-- Add Subject -->
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Nueva Materia</label>
+                            <div class="flex">
+                                <input type="text" id="subjectInput" class="flex-1 px-4 py-2 border rounded-l-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600" placeholder="Ej: Matemáticas">
+                                <button id="addSubjectBtn" class="bg-primary text-white px-4 py-2 rounded-r-lg hover:bg-primary-hover transition-colors">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Add Level -->
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Nuevo Nivel</label>
+                            <div class="flex">
+                                <input type="text" id="levelInput" class="flex-1 px-4 py-2 border rounded-l-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600" placeholder="Ej: Básico">
+                                <button id="addLevelBtn" class="bg-primary text-white px-4 py-2 rounded-r-lg hover:bg-primary-hover transition-colors">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-6 border-t dark:border-gray-700">
+                        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Resumen</h3>
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                                <span id="subjectCount" class="block text-2xl font-bold">0</span>
+                                <span class="text-xs text-gray-500">Materias</span>
+                            </div>
+                            <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                                <span id="levelCount" class="block text-2xl font-bold">0</span>
+                                <span class="text-xs text-gray-500">Niveles</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content: Create Exams -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm animate-fade-in" style="animation-delay: 0.1s">
+                    <h2 class="text-xl font-bold mb-6 flex items-center">
+                        <i class="fas fa-file-signature mr-2 text-primary"></i> Crear Nuevo Examen
+                    </h2>
+
+                    <form id="examForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Título del Examen</label>
+                                <input type="text" id="examTitle" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Materia</label>
+                                <select id="examSubject" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
+                                    <option value="">Seleccionar Materia</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Nivel</label>
+                                <select id="examLevel" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
+                                    <option value="">Seleccionar Nivel</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Descripción (Opcional)</label>
+                                <input type="text" id="examDesc" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
+                            </div>
+                        </div>
+
+                        <div class="pt-4">
+                            <button type="submit" class="w-full bg-primary text-white font-bold py-3 rounded-xl hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">
+                                Guardar y Agregar Preguntas
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Questions Section (Hidden until exam is created) -->
+                <div id="questionsContainer" class="hidden space-y-6">
+                    <!-- Dynamic question list will appear here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/admin.js"></script>
+    <script>
+        // Theme Logic
+        const themeToggle = document.getElementById('themeToggle');
+        const body = document.body;
+
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        });
+    </script>
+</body>
+</html>
