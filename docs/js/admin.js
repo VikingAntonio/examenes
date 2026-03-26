@@ -21,6 +21,7 @@ const examLevelSelect = document.getElementById('examLevel');
 // State
 let subjects = [];
 let levels = [];
+let uploadedFiles = { image: null, audio: null };
 
 // Fetch initial data
 async function fetchData() {
@@ -120,16 +121,17 @@ function showQuestionsEditor() {
 }
 
 function renderQuestionForm() {
+    uploadedFiles = { image: null, audio: null };
     questionsContainer.innerHTML = `
         <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm animate-fade-in">
             <h3 class="text-lg font-bold mb-4">Añadir Pregunta</h3>
-            <form id="questionForm" class="space-y-4">
+            <form id="questionForm" class="space-y-6">
                 <div class="space-y-2">
                     <label class="text-sm font-medium">Pregunta</label>
-                    <textarea id="questionText" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600"></textarea>
+                    <textarea id="questionText" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600 min-h-[100px]"></textarea>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Tipo de Pregunta</label>
                         <select id="questionType" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
@@ -137,9 +139,17 @@ function renderQuestionForm() {
                             <option value="text">Respuesta Abierta (Texto)</option>
                         </select>
                     </div>
+
                     <div class="space-y-2">
-                        <label class="text-sm font-medium">Imagen (Opcional)</label>
-                        <input type="file" id="questionImage" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-hover transition-all">
+                        <label class="text-sm font-medium">Multimedia (Drag & Drop)</label>
+                        <div id="dropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center cursor-pointer hover:border-primary transition-colors relative">
+                            <input type="file" id="fileInput" class="hidden" accept="image/*,audio/*" multiple>
+                            <div id="dropZonePrompt">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                <p class="text-xs text-gray-500">Suelte imágenes o audios aquí</p>
+                            </div>
+                            <div id="filePreview" class="hidden mt-2 flex flex-wrap gap-2 justify-center"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -163,13 +173,13 @@ function renderQuestionForm() {
 
                 <div class="pt-4 flex justify-between">
                     <button type="button" onclick="location.reload()" class="text-gray-500 hover:text-gray-700">Finalizar</button>
-                    <button type="submit" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-hover font-bold">Guardar Pregunta</button>
+                    <button type="submit" class="bg-primary text-white px-8 py-3 rounded-xl hover:bg-primary-hover font-bold shadow-lg shadow-primary/20 transition-all">Guardar Pregunta</button>
                 </div>
             </form>
         </div>
-        <div id="savedQuestionsList" class="space-y-4 mt-8"></div>
     `;
 
+    setupDragAndDrop();
     const qType = document.getElementById('questionType');
     const optCont = document.getElementById('optionsContainer');
     const textCont = document.getElementById('textAnswerContainer');
@@ -208,26 +218,92 @@ function renderQuestionForm() {
     document.getElementById('questionForm').addEventListener('submit', handleQuestionSubmit);
 }
 
+function setupDragAndDrop() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('filePreview');
+    const prompt = document.getElementById('dropZonePrompt');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+        dropZone.addEventListener(evt, () => dropZone.classList.remove('drag-over'));
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        handleFiles(e.dataTransfer.files);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+    });
+
+    function handleFiles(files) {
+        Array.from(files).forEach(file => {
+            if (file.type.startsWith('image/')) {
+                uploadedFiles.image = file;
+            } else if (file.type.startsWith('audio/')) {
+                uploadedFiles.audio = file;
+            }
+        });
+        updatePreview();
+    }
+
+    function updatePreview() {
+        preview.innerHTML = '';
+        if (uploadedFiles.image || uploadedFiles.audio) {
+            prompt.classList.add('hidden');
+            preview.classList.remove('hidden');
+
+            if (uploadedFiles.image) {
+                const img = document.createElement('div');
+                img.className = 'text-xs bg-primary/10 text-primary px-2 py-1 rounded-md';
+                img.innerHTML = `<i class="fas fa-image mr-1"></i> Imagen cargada`;
+                preview.appendChild(img);
+            }
+            if (uploadedFiles.audio) {
+                const aud = document.createElement('div');
+                aud.className = 'text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded-md';
+                aud.innerHTML = `<i class="fas fa-volume-up mr-1"></i> Audio cargado`;
+                preview.appendChild(aud);
+            }
+        }
+    }
+}
+
 async function handleQuestionSubmit(e) {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
     btn.disabled = true;
-    btn.textContent = 'Guardando...';
+    btn.textContent = 'Subiendo archivos...';
 
     const questionText = document.getElementById('questionText').value;
     const questionType = document.getElementById('questionType').value;
-    const imageFile = document.getElementById('questionImage').files[0];
-    let imageUrl = null;
 
-    if (imageFile) {
-        imageUrl = await uploadImage(imageFile);
+    let imageUrl = null;
+    let audioUrl = null;
+
+    if (uploadedFiles.image) {
+        imageUrl = await uploadToCloudinary(uploadedFiles.image);
     }
+    if (uploadedFiles.audio) {
+        audioUrl = await uploadToCloudinary(uploadedFiles.audio);
+    }
+
+    btn.textContent = 'Guardando datos...';
 
     const { data: qData, error: qError } = await supabaseClient.from('questions').insert([{
         exam_id: currentExamId,
         question_text: questionText,
         question_type: questionType,
         image_url: imageUrl,
+        audio_url: audioUrl,
         correct_answer_text: questionType === 'text' ? document.getElementById('correctAnswerText').value : null
     }]).select();
 
@@ -249,13 +325,13 @@ async function handleQuestionSubmit(e) {
     renderQuestionForm(); // Reset for next question
 }
 
-async function uploadImage(file) {
+async function uploadToCloudinary(file) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
     try {
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`, {
             method: 'POST',
             body: formData
         });

@@ -30,6 +30,7 @@ CREATE TABLE questions (
     question_text TEXT NOT NULL,
     question_type TEXT NOT NULL CHECK (question_type IN ('multiple_choice', 'text')),
     image_url TEXT,
+    audio_url TEXT,
     correct_answer_text TEXT, -- Used for 'text' type questions
     order_priority INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

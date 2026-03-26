@@ -28,6 +28,15 @@ body {
     animation: fadeIn 0.5s ease-out;
 }
 
+.drag-over {
+    border-color: var(--primary) !important;
+    background-color: rgba(99, 102, 241, 0.05);
+}
+
+.dark .drag-over {
+    background-color: rgba(99, 102, 241, 0.1);
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
