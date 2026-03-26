@@ -1,5 +1,8 @@
+-- Enable the uuid-ossp extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Create subjects table
-CREATE TABLE subjects (
+CREATE TABLE IF NOT EXISTS subjects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     description TEXT,
@@ -7,14 +10,14 @@ CREATE TABLE subjects (
 );
 
 -- Create levels table
-CREATE TABLE levels (
+CREATE TABLE IF NOT EXISTS levels (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Create exams table
-CREATE TABLE exams (
+CREATE TABLE IF NOT EXISTS exams (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     subject_id UUID REFERENCES subjects(id) ON DELETE CASCADE,
     level_id UUID REFERENCES levels(id) ON DELETE SET NULL,
@@ -24,7 +27,7 @@ CREATE TABLE exams (
 );
 
 -- Create questions table
-CREATE TABLE questions (
+CREATE TABLE IF NOT EXISTS questions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     exam_id UUID REFERENCES exams(id) ON DELETE CASCADE,
     question_text TEXT NOT NULL,
@@ -37,7 +40,7 @@ CREATE TABLE questions (
 );
 
 -- Create options table (for multiple choice questions)
-CREATE TABLE options (
+CREATE TABLE IF NOT EXISTS options (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
     option_text TEXT NOT NULL,
@@ -54,8 +57,22 @@ ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE options ENABLE ROW LEVEL SECURITY;
 
 -- Create policies to allow anyone to read/write for this demo
-CREATE POLICY "Allow public access" ON subjects FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access" ON levels FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access" ON exams FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access" ON questions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access" ON options FOR ALL USING (true) WITH CHECK (true);
+-- Note: Using DO block to avoid 'already exists' error on policies
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access' AND tablename = 'subjects') THEN
+        CREATE POLICY "Allow public access" ON subjects FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access' AND tablename = 'levels') THEN
+        CREATE POLICY "Allow public access" ON levels FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access' AND tablename = 'exams') THEN
+        CREATE POLICY "Allow public access" ON exams FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access' AND tablename = 'questions') THEN
+        CREATE POLICY "Allow public access" ON questions FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access' AND tablename = 'options') THEN
+        CREATE POLICY "Allow public access" ON options FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+END $$;
