@@ -16,7 +16,6 @@ const examCountEl = document.getElementById('examCount');
 const recentExamsList = document.getElementById('recentExamsList');
 const fullExamsGrid = document.getElementById('fullExamsGrid');
 const subjectsList = document.getElementById('subjectsList');
-const levelsList = document.getElementById('levelsList');
 
 // Helper for XSS safety
 function esc(str) {
@@ -80,13 +79,6 @@ function updateSettingsUI() {
             <button onclick="deleteEntity('subjects', '${s.id}')" class="text-gray-400 hover:text-red-500"><i class="fas fa-trash-alt"></i></button>
         </div>
     `).join('');
-
-    levelsList.innerHTML = levels.map(l => `
-        <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-            <span class="text-sm font-medium">${esc(l.name)}</span>
-            <button onclick="deleteEntity('levels', '${l.id}')" class="text-gray-400 hover:text-red-500"><i class="fas fa-trash-alt"></i></button>
-        </div>
-    `).join('');
 }
 
 function renderExamsGrid() {
@@ -135,13 +127,6 @@ document.getElementById('addSubjectBtn').addEventListener('click', async () => {
     fetchData();
 });
 
-document.getElementById('addLevelBtn').addEventListener('click', async () => {
-    const name = document.getElementById('levelInput').value.trim();
-    if (!name) return;
-    await supabaseClient.from('levels').insert([{ name }]);
-    document.getElementById('levelInput').value = '';
-    fetchData();
-});
 
 // Exam Form Logic
 function showCreateExam() {
@@ -178,11 +163,52 @@ async function manageQuestions(examId) {
 
     document.getElementById('questionManager').classList.remove('hidden');
     document.getElementById('currentExamTitle').textContent = currentExam.title;
-    document.getElementById('currentExamMeta').textContent = `${currentExam.subjects?.name} • ${currentExam.levels?.name}`;
+    document.getElementById('currentExamMeta').textContent = `${currentExam.subjects?.name} • ${currentExam.levels?.name || 'Sin Nivel'}`;
 
+    updateManagerLevelSelect();
     await fetchQuestions();
     showQuestionForm();
 }
+
+function updateManagerLevelSelect() {
+    const select = document.getElementById('currentExamLevelSelect');
+    select.innerHTML = '<option value="">Sin Nivel</option>' +
+        levels.map(l => `<option value="${l.id}" ${currentExam.level_id === l.id ? 'selected' : ''}>${esc(l.name)}</option>`).join('');
+}
+
+document.getElementById('currentExamLevelSelect').addEventListener('change', async (e) => {
+    const levelId = e.target.value;
+    const { error } = await supabaseClient.from('exams').update({ level_id: levelId || null }).eq('id', currentExam.id);
+    if (error) {
+        alert('Error al actualizar nivel: ' + error.message);
+    } else {
+        // Refresh local state
+        await fetchData();
+        currentExam = exams.find(e => e.id === currentExam.id);
+        document.getElementById('currentExamMeta').textContent = `${currentExam.subjects?.name} • ${currentExam.levels?.name || 'Sin Nivel'}`;
+    }
+});
+
+document.getElementById('quickAddLevelBtn').addEventListener('click', async () => {
+    const input = document.getElementById('quickAddLevelInput');
+    const name = input.value.trim();
+    if (!name) return;
+
+    const { data, error } = await supabaseClient.from('levels').insert([{ name }]).select();
+    if (error) {
+        alert('Error al crear nivel: ' + error.message);
+    } else {
+        input.value = '';
+        await fetchData(); // Refresh levels list
+        // Automatically assign new level to current exam
+        const newLevelId = data[0].id;
+        await supabaseClient.from('exams').update({ level_id: newLevelId }).eq('id', currentExam.id);
+        await fetchData();
+        currentExam = exams.find(e => e.id === currentExam.id);
+        updateManagerLevelSelect();
+        document.getElementById('currentExamMeta').textContent = `${currentExam.subjects?.name} • ${currentExam.levels?.name || 'Sin Nivel'}`;
+    }
+});
 
 function closeQuestionManager() {
     document.getElementById('questionManager').classList.add('hidden');
