@@ -1,121 +1,81 @@
 const { supabaseClient } = window;
 
-// DOM Elements
-const examGrid = document.getElementById('examGrid');
-const subjectFilter = document.getElementById('subjectFilter');
-const levelFilter = document.getElementById('levelFilter');
-const resetFilters = document.getElementById('resetFilters');
-
-// State
 let allExams = [];
 let subjects = [];
 let levels = [];
 
-async function init() {
-    await fetchFilters();
-    await fetchExams();
-    renderExams();
+function esc(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
-async function fetchFilters() {
+async function init() {
     const { data: sData } = await supabaseClient.from('subjects').select('*').order('name');
     const { data: lData } = await supabaseClient.from('levels').select('*').order('name');
+    const { data: eData } = await supabaseClient.from('exams').select('*, subjects(name), levels(name)').order('created_at', { ascending: false });
 
     subjects = sData || [];
     levels = lData || [];
+    allExams = eData || [];
 
-    subjects.forEach(s => {
-        const opt = new Option(s.name, s.id);
-        subjectFilter.add(opt);
-    });
-
-    levels.forEach(l => {
-        const opt = new Option(l.name, l.id);
-        levelFilter.add(opt);
-    });
+    populateFilters();
+    renderExams(allExams);
 }
 
-async function fetchExams() {
-    const { data, error } = await supabaseClient
-        .from('exams')
-        .select('*, subjects(name), levels(name)')
-        .order('created_at', { ascending: false });
+function populateFilters() {
+    const sFilter = document.getElementById('subjectFilter');
+    const lFilter = document.getElementById('levelFilter');
 
-    if (error) console.error('Error fetching exams:', error);
-    allExams = data || [];
+    sFilter.innerHTML = '<option value="">Todas las materias</option>' +
+        subjects.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+
+    lFilter.innerHTML = '<option value="">Todos los niveles</option>' +
+        levels.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
 }
 
-function renderExams() {
-    const sVal = subjectFilter.value;
-    const lVal = levelFilter.value;
-
-    const filtered = allExams.filter(exam => {
-        const matchSubject = sVal === 'all' || exam.subject_id === sVal;
-        const matchLevel = lVal === 'all' || exam.level_id === lVal;
-        return matchSubject && matchLevel;
-    });
-
-    examGrid.innerHTML = '';
-
-    if (filtered.length === 0) {
-        const emptyState = document.createElement('div');
-        emptyState.className = 'col-span-full text-center py-12';
-        emptyState.innerHTML = `
-            <i class="fas fa-search fa-3x text-gray-300 mb-4"></i>
-            <p class="text-gray-500">No se encontraron exámenes con los filtros seleccionados.</p>
-        `;
-        examGrid.appendChild(emptyState);
+function renderExams(exams) {
+    const grid = document.getElementById('examGrid');
+    if (exams.length === 0) {
+        grid.innerHTML = '<div class="col-span-full py-20 text-center text-gray-400">No se encontraron exámenes con estos filtros.</div>';
         return;
     }
 
-    filtered.forEach(exam => {
-        const card = document.createElement('div');
-        card.className = 'bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm card-hover animate-fade-in';
-
-        const header = document.createElement('div');
-        header.className = 'flex justify-between items-start mb-4';
-
-        const subjectTag = document.createElement('span');
-        subjectTag.className = 'px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase';
-        subjectTag.textContent = exam.subjects?.name || 'Materia';
-
-        const levelTag = document.createElement('span');
-        levelTag.className = 'text-xs text-gray-500';
-        levelTag.textContent = exam.levels?.name || 'Nivel';
-
-        header.appendChild(subjectTag);
-        header.appendChild(levelTag);
-
-        const title = document.createElement('h3');
-        title.className = 'text-xl font-bold mb-2';
-        title.textContent = exam.title;
-
-        const desc = document.createElement('p');
-        desc.className = 'text-gray-600 dark:text-gray-400 text-sm mb-6 line-clamp-2';
-        desc.textContent = exam.description || 'Sin descripción disponible.';
-
-        const button = document.createElement('button');
-        button.className = 'w-full py-3 bg-gray-100 dark:bg-gray-700 hover:bg-primary hover:text-white transition-all rounded-xl font-semibold flex items-center justify-center group';
-        button.innerHTML = `
-            Realizar Examen
-            <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-        `;
-
-        card.appendChild(header);
-        card.appendChild(title);
-        card.appendChild(desc);
-        card.appendChild(button);
-
-        examGrid.appendChild(card);
-    });
+    grid.innerHTML = exams.map(exam => `
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border dark:border-gray-700 card-hover group">
+            <div class="flex justify-between items-start mb-6">
+                <span class="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-primary text-[10px] font-bold rounded-full uppercase tracking-wider">${esc(exam.subjects?.name)}</span>
+                <span class="text-xs font-bold text-gray-300">${esc(exam.levels?.name)}</span>
+            </div>
+            <h3 class="text-xl font-bold mb-3 group-hover:text-primary transition-colors">${esc(exam.title)}</h3>
+            <p class="text-sm text-gray-500 mb-8 line-clamp-2">${esc(exam.description || 'Sin descripción disponible.')}</p>
+            <button class="w-full py-4 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-2xl font-bold flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+                Realizar Examen <i class="fas fa-arrow-right ml-2 text-xs"></i>
+            </button>
+        </div>
+    `).join('');
 }
 
-subjectFilter.addEventListener('change', renderExams);
-levelFilter.addEventListener('change', renderExams);
-resetFilters.addEventListener('click', () => {
-    subjectFilter.value = 'all';
-    levelFilter.value = 'all';
-    renderExams();
-});
+function applyFilters() {
+    const subjectId = document.getElementById('subjectFilter').value;
+    const levelId = document.getElementById('levelFilter').value;
+
+    let filtered = allExams;
+    if (subjectId && subjectId !== 'all') filtered = filtered.filter(e => e.subject_id === subjectId);
+    if (levelId && levelId !== 'all') filtered = filtered.filter(e => e.level_id === levelId);
+
+    renderExams(filtered);
+}
+
+function resetFilters() {
+    document.getElementById('subjectFilter').value = 'all';
+    document.getElementById('levelFilter').value = 'all';
+    renderExams(allExams);
+}
+
+document.getElementById('subjectFilter').addEventListener('change', applyFilters);
+document.getElementById('levelFilter').addEventListener('change', applyFilters);
+document.getElementById('resetFilters').addEventListener('click', resetFilters);
 
 init();
