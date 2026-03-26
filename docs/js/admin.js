@@ -1,223 +1,359 @@
 const { supabaseClient } = window;
 
-// Helper to escape HTML and prevent XSS
-function escapeHTML(str) {
+// State Management
+let subjects = [];
+let levels = [];
+let exams = [];
+let currentExam = null;
+let currentQuestions = [];
+let editingQuestion = null;
+let uploadedFiles = { image: null, audio: null };
+
+// DOM Elements
+const subjectCountEl = document.getElementById('subjectCount');
+const levelCountEl = document.getElementById('levelCount');
+const examCountEl = document.getElementById('examCount');
+const recentExamsList = document.getElementById('recentExamsList');
+const fullExamsGrid = document.getElementById('fullExamsGrid');
+const subjectsList = document.getElementById('subjectsList');
+const levelsList = document.getElementById('levelsList');
+
+// Helper for XSS safety
+function esc(str) {
     if (!str) return '';
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
 }
 
-// DOM Elements
-const subjectInput = document.getElementById('subjectInput');
-const addSubjectBtn = document.getElementById('addSubjectBtn');
-const levelInput = document.getElementById('levelInput');
-const addLevelBtn = document.getElementById('addLevelBtn');
-const subjectCountEl = document.getElementById('subjectCount');
-const levelCountEl = document.getElementById('levelCount');
-const examSubjectSelect = document.getElementById('examSubject');
-const examLevelSelect = document.getElementById('examLevel');
-
-// State
-let subjects = [];
-let levels = [];
-let uploadedFiles = { image: null, audio: null };
-
-// Fetch initial data
-async function fetchData() {
-    const { data: subjectsData, error: sError } = await supabaseClient.from('subjects').select('*').order('name');
-    const { data: levelsData, error: lError } = await supabaseClient.from('levels').select('*').order('name');
-
-    if (sError) console.error('Error fetching subjects:', sError);
-    if (lError) console.error('Error fetching levels:', lError);
-
-    subjects = subjectsData || [];
-    levels = levelsData || [];
-
-    updateUI();
+// Initialize
+async function init() {
+    await fetchData();
 }
 
-function updateUI() {
+async function fetchData() {
+    const { data: sData } = await supabaseClient.from('subjects').select('*').order('name');
+    const { data: lData } = await supabaseClient.from('levels').select('*').order('name');
+    const { data: eData } = await supabaseClient.from('exams').select('*, subjects(name), levels(name)').order('created_at', { ascending: false });
+
+    subjects = sData || [];
+    levels = lData || [];
+    exams = eData || [];
+
+    updateDashboardUI();
+    updateSettingsUI();
+    renderExamsGrid();
+    populateSelects();
+}
+
+function updateDashboardUI() {
     subjectCountEl.textContent = subjects.length;
     levelCountEl.textContent = levels.length;
+    examCountEl.textContent = exams.length;
 
-    // Update Selects
-    examSubjectSelect.innerHTML = '<option value="">Seleccionar Materia</option>';
-    subjects.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = s.name;
-        examSubjectSelect.appendChild(opt);
-    });
+    const filtered = exams.filter(e =>
+        e.title.toLowerCase().includes(document.getElementById('examSearch').value.toLowerCase())
+    );
 
-    examLevelSelect.innerHTML = '<option value="">Seleccionar Nivel</option>';
-    levels.forEach(l => {
-        const opt = document.createElement('option');
-        opt.value = l.id;
-        opt.textContent = l.name;
-        examLevelSelect.appendChild(opt);
-    });
+    recentExamsList.innerHTML = filtered.slice(0, 5).map(exam => `
+        <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex justify-between items-center group">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-4">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-sm">${esc(exam.title)}</h4>
+                    <p class="text-xs text-gray-500">${esc(exam.subjects?.name || 'Materia')} • ${esc(exam.levels?.name || 'Nivel')}</p>
+                </div>
+            </div>
+            <button onclick="manageQuestions('${exam.id}')" class="opacity-0 group-hover:opacity-100 p-2 text-primary hover:bg-primary/10 rounded-lg transition-all">
+                <i class="fas fa-edit"></i>
+            </button>
+        </div>
+    `).join('') || '<div class="p-8 text-center text-gray-400">No hay exámenes recientes</div>';
 }
 
-// Add Subject
-addSubjectBtn.addEventListener('click', async () => {
-    const name = subjectInput.value.trim();
-    if (!name) return;
+function updateSettingsUI() {
+    subjectsList.innerHTML = subjects.map(s => `
+        <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+            <span class="text-sm font-medium">${esc(s.name)}</span>
+            <button onclick="deleteEntity('subjects', '${s.id}')" class="text-gray-400 hover:text-red-500"><i class="fas fa-trash-alt"></i></button>
+        </div>
+    `).join('');
 
-    const { data, error } = await supabaseClient.from('subjects').insert([{ name }]).select();
-    if (error) {
-        alert('Error al añadir materia: ' + error.message);
-    } else {
-        subjects.push(data[0]);
-        subjectInput.value = '';
-        updateUI();
-    }
+    levelsList.innerHTML = levels.map(l => `
+        <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+            <span class="text-sm font-medium">${esc(l.name)}</span>
+            <button onclick="deleteEntity('levels', '${l.id}')" class="text-gray-400 hover:text-red-500"><i class="fas fa-trash-alt"></i></button>
+        </div>
+    `).join('');
+}
+
+function renderExamsGrid() {
+    const filtered = exams.filter(e =>
+        e.title.toLowerCase().includes(document.getElementById('examSearch').value.toLowerCase())
+    );
+    fullExamsGrid.innerHTML = filtered.map(exam => `
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border dark:border-gray-700 card-hover group">
+            <div class="flex justify-between items-start mb-4">
+                <span class="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full uppercase">${esc(exam.subjects?.name || 'Materia')}</span>
+                <div class="flex space-x-1">
+                    <button onclick="manageQuestions('${exam.id}')" class="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteEntity('exams', '${exam.id}')" class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            </div>
+            <h3 class="font-bold mb-2 group-hover:text-primary transition-colors">${esc(exam.title)}</h3>
+            <p class="text-xs text-gray-500 mb-6 line-clamp-2">${esc(exam.description || 'Sin descripción')}</p>
+            <button onclick="manageQuestions('${exam.id}')" class="w-full py-2.5 text-xs font-bold bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-primary hover:text-white transition-all">
+                Gestionar Preguntas
+            </button>
+        </div>
+    `).join('') || '<div class="col-span-full py-12 text-center text-gray-400">No hay exámenes creados</div>';
+}
+
+function populateSelects() {
+    const sSelect = document.getElementById('examSubject');
+    const lSelect = document.getElementById('examLevel');
+
+    sSelect.innerHTML = '<option value="">Seleccionar Materia</option>' + subjects.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    lSelect.innerHTML = '<option value="">Seleccionar Nivel</option>' + levels.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+}
+
+// Entity Management
+async function deleteEntity(table, id) {
+    if (!confirm('¿Estás seguro de que deseas eliminar este elemento?')) return;
+    const { error } = await supabaseClient.from(table).delete().eq('id', id);
+    if (error) alert('Error: ' + error.message);
+    else fetchData();
+}
+
+document.getElementById('addSubjectBtn').addEventListener('click', async () => {
+    const name = document.getElementById('subjectInput').value.trim();
+    if (!name) return;
+    await supabaseClient.from('subjects').insert([{ name }]);
+    document.getElementById('subjectInput').value = '';
+    fetchData();
 });
 
-// Add Level
-addLevelBtn.addEventListener('click', async () => {
-    const name = levelInput.value.trim();
+document.getElementById('addLevelBtn').addEventListener('click', async () => {
+    const name = document.getElementById('levelInput').value.trim();
     if (!name) return;
-
-    const { data, error } = await supabaseClient.from('levels').insert([{ name }]).select();
-    if (error) {
-        alert('Error al añadir nivel: ' + error.message);
-    } else {
-        levels.push(data[0]);
-        levelInput.value = '';
-        updateUI();
-    }
+    await supabaseClient.from('levels').insert([{ name }]);
+    document.getElementById('levelInput').value = '';
+    fetchData();
 });
 
-// Exam & Question Management
-const examForm = document.getElementById('examForm');
-const questionsContainer = document.getElementById('questionsContainer');
-let currentExamId = null;
+// Exam Form Logic
+function showCreateExam() {
+    document.getElementById('examModal').classList.remove('hidden');
+    document.getElementById('examForm').reset();
+    document.getElementById('examModalTitle').textContent = 'Crear Nuevo Examen';
+}
 
-examForm.addEventListener('submit', async (e) => {
+function closeExamModal() {
+    document.getElementById('examModal').classList.add('hidden');
+}
+
+document.getElementById('examForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const title = document.getElementById('examTitle').value;
     const subject_id = document.getElementById('examSubject').value;
     const level_id = document.getElementById('examLevel').value;
     const description = document.getElementById('examDesc').value;
 
-    const { data, error } = await supabaseClient.from('exams').insert([{
-        title, subject_id, level_id, description
-    }]).select();
-
+    const { data, error } = await supabaseClient.from('exams').insert([{ title, subject_id, level_id, description }]).select();
     if (error) {
-        alert('Error al crear examen: ' + error.message);
+        alert('Error: ' + error.message);
     } else {
-        currentExamId = data[0].id;
-        showQuestionsEditor();
+        closeExamModal();
+        await fetchData();
+        manageQuestions(data[0].id);
     }
 });
 
-function showQuestionsEditor() {
-    examForm.parentElement.classList.add('hidden');
-    questionsContainer.classList.remove('hidden');
-    renderQuestionForm();
+// Question Manager Logic
+async function manageQuestions(examId) {
+    currentExam = exams.find(e => e.id === examId);
+    if (!currentExam) return;
+
+    document.getElementById('questionManager').classList.remove('hidden');
+    document.getElementById('currentExamTitle').textContent = currentExam.title;
+    document.getElementById('currentExamMeta').textContent = `${currentExam.subjects?.name} • ${currentExam.levels?.name}`;
+
+    await fetchQuestions();
+    showQuestionForm();
 }
 
-function renderQuestionForm() {
-    uploadedFiles = { image: null, audio: null };
-    questionsContainer.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm animate-fade-in">
-            <h3 class="text-lg font-bold mb-4">Añadir Pregunta</h3>
-            <form id="questionForm" class="space-y-6">
-                <div class="space-y-2">
-                    <label class="text-sm font-medium">Pregunta</label>
-                    <textarea id="questionText" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600 min-h-[100px]"></textarea>
-                </div>
+function closeQuestionManager() {
+    document.getElementById('questionManager').classList.add('hidden');
+    editingQuestion = null;
+}
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium">Tipo de Pregunta</label>
-                        <select id="questionType" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
-                            <option value="multiple_choice">Opción Múltiple</option>
-                            <option value="text">Respuesta Abierta (Texto)</option>
-                        </select>
-                    </div>
+async function fetchQuestions() {
+    const { data, error } = await supabaseClient.from('questions').select('*, options(*)').eq('exam_id', currentExam.id).order('created_at');
+    currentQuestions = data || [];
+    renderQuestionsSidebar();
+}
 
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium">Multimedia (Drag & Drop)</label>
-                        <div id="dropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center cursor-pointer hover:border-primary transition-colors relative">
-                            <input type="file" id="fileInput" class="hidden" accept="image/*,audio/*" multiple>
-                            <div id="dropZonePrompt">
-                                <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
-                                <p class="text-xs text-gray-500">Suelte imágenes o audios aquí</p>
-                            </div>
-                            <div id="filePreview" class="hidden mt-2 flex flex-wrap gap-2 justify-center"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="optionsContainer" class="space-y-3">
-                    <label class="text-sm font-medium">Opciones</label>
-                    <div class="flex items-center space-x-2">
-                        <input type="text" class="option-input flex-1 px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" placeholder="Opción 1">
-                        <input type="radio" name="correctOption" value="0" checked>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <input type="text" class="option-input flex-1 px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" placeholder="Opción 2">
-                        <input type="radio" name="correctOption" value="1">
-                    </div>
-                    <button type="button" id="addOptionBtn" class="text-primary text-sm font-medium hover:underline">+ Añadir otra opción</button>
-                </div>
-
-                <div id="textAnswerContainer" class="hidden space-y-2">
-                    <label class="text-sm font-medium">Respuesta Correcta</label>
-                    <input type="text" id="correctAnswerText" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
-                </div>
-
-                <div class="pt-4 flex justify-between">
-                    <button type="button" onclick="location.reload()" class="text-gray-500 hover:text-gray-700">Finalizar</button>
-                    <button type="submit" class="bg-primary text-white px-8 py-3 rounded-xl hover:bg-primary-hover font-bold shadow-lg shadow-primary/20 transition-all">Guardar Pregunta</button>
-                </div>
-            </form>
+function renderQuestionsSidebar() {
+    const list = document.getElementById('questionListSidebar');
+    list.innerHTML = currentQuestions.map((q, idx) => `
+        <div onclick="editQuestion('${q.id}')" class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors ${editingQuestion?.id === q.id ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-primary' : ''}">
+            <div class="flex justify-between items-start mb-1">
+                <span class="text-[10px] font-bold text-gray-400 uppercase">Pregunta ${idx + 1}</span>
+                <button onclick="event.stopPropagation(); deleteQuestion('${q.id}')" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash-alt text-xs"></i></button>
+            </div>
+            <p class="text-xs font-medium line-clamp-2">${esc(q.question_text)}</p>
         </div>
-    `;
-
-    setupDragAndDrop();
-    const qType = document.getElementById('questionType');
-    const optCont = document.getElementById('optionsContainer');
-    const textCont = document.getElementById('textAnswerContainer');
-    const addOptBtn = document.getElementById('addOptionBtn');
-
-    qType.addEventListener('change', () => {
-        if (qType.value === 'multiple_choice') {
-            optCont.classList.remove('hidden');
-            textCont.classList.add('hidden');
-        } else {
-            optCont.classList.add('hidden');
-            textCont.classList.remove('hidden');
-        }
-    });
-
-    addOptBtn.addEventListener('click', () => {
-        const div = document.createElement('div');
-        div.className = 'flex items-center space-x-2';
-        const index = document.querySelectorAll('.option-input').length;
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'option-input flex-1 px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600';
-        input.placeholder = `Opción ${index + 1}`;
-
-        const radio = document.createElement('input');
-        radio.type = 'radio';
-        radio.name = 'correctOption';
-        radio.value = index;
-
-        div.appendChild(input);
-        div.appendChild(radio);
-        optCont.insertBefore(div, addOptBtn);
-    });
-
-    document.getElementById('questionForm').addEventListener('submit', handleQuestionSubmit);
+    `).join('') || '<div class="p-8 text-center text-sm text-gray-400">Sin preguntas</div>';
 }
 
+function showQuestionForm() {
+    editingQuestion = null;
+    uploadedFiles = { image: null, audio: null };
+    document.getElementById('qEditorTitle').textContent = 'Nueva Pregunta';
+    document.getElementById('questionForm').reset();
+    document.getElementById('editQuestionId').value = '';
+    document.getElementById('questionFormArea').classList.remove('hidden');
+    document.getElementById('emptyQuestionArea').classList.add('hidden');
+    document.getElementById('optionsList').innerHTML = '';
+    document.getElementById('filePreview').innerHTML = '';
+    document.getElementById('dropZonePrompt').classList.remove('hidden');
+
+    addOption();
+    addOption();
+    switchQuestionType();
+}
+
+async function editQuestion(id) {
+    editingQuestion = currentQuestions.find(q => q.id === id);
+    if (!editingQuestion) return;
+
+    document.getElementById('qEditorTitle').textContent = 'Editar Pregunta';
+    document.getElementById('questionFormArea').classList.remove('hidden');
+    document.getElementById('emptyQuestionArea').classList.add('hidden');
+
+    document.getElementById('editQuestionId').value = editingQuestion.id;
+    document.getElementById('questionText').value = editingQuestion.question_text;
+    document.getElementById('questionType').value = editingQuestion.question_type;
+    document.getElementById('correctAnswerText').value = editingQuestion.correct_answer_text || '';
+
+    const oList = document.getElementById('optionsList');
+    oList.innerHTML = '';
+    if (editingQuestion.options && editingQuestion.options.length > 0) {
+        editingQuestion.options.forEach((opt, idx) => addOption(opt.option_text, opt.is_correct));
+    } else if (editingQuestion.question_type === 'multiple_choice') {
+        addOption(); addOption();
+    }
+
+    const preview = document.getElementById('filePreview');
+    const prompt = document.getElementById('dropZonePrompt');
+    preview.innerHTML = '';
+    if (editingQuestion.image_url || editingQuestion.audio_url) {
+        prompt.classList.add('hidden');
+        preview.classList.remove('hidden');
+        if (editingQuestion.image_url) {
+            preview.innerHTML += '<div class="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded">Imagen actual</div>';
+        }
+        if (editingQuestion.audio_url) {
+            preview.innerHTML += '<div class="text-[10px] bg-green-500/10 text-green-600 px-2 py-1 rounded">Audio actual</div>';
+        }
+    } else {
+        prompt.classList.remove('hidden');
+    }
+
+    switchQuestionType();
+    renderQuestionsSidebar();
+}
+
+function addOption(text = '', isCorrect = false) {
+    const list = document.getElementById('optionsList');
+    const idx = list.children.length;
+    const div = document.createElement('div');
+    div.className = 'flex items-center space-x-2';
+    div.innerHTML = `
+        <input type="text" class="option-input flex-1 px-4 py-2 text-sm rounded-xl border dark:border-gray-700 dark:bg-gray-700 outline-none" placeholder="Texto de la opción" value="${esc(text)}">
+        <input type="radio" name="correctOption" value="${idx}" ${isCorrect ? 'checked' : ''} class="w-4 h-4 text-primary">
+        <button type="button" onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+    `;
+    list.appendChild(div);
+}
+
+function switchQuestionType() {
+    const type = document.getElementById('questionType').value;
+    document.getElementById('optionsContainer').classList.toggle('hidden', type !== 'multiple_choice');
+    document.getElementById('textAnswerContainer').classList.toggle('hidden', type !== 'text');
+}
+
+document.getElementById('questionType').addEventListener('change', switchQuestionType);
+document.getElementById('addOptionBtn').addEventListener('click', () => addOption());
+
+async function deleteQuestion(id) {
+    if (!confirm('¿Eliminar esta pregunta?')) return;
+    await supabaseClient.from('questions').delete().eq('id', id);
+    fetchQuestions();
+}
+
+function cancelQuestionEdit() {
+    document.getElementById('questionFormArea').classList.add('hidden');
+    document.getElementById('emptyQuestionArea').classList.remove('hidden');
+    editingQuestion = null;
+    renderQuestionsSidebar();
+}
+
+// Form Submission
+document.getElementById('questionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const saveBtn = document.getElementById('saveQuestionBtn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Guardando...';
+
+    const qId = document.getElementById('editQuestionId').value;
+    const text = document.getElementById('questionText').value;
+    const type = document.getElementById('questionType').value;
+    const correctText = document.getElementById('correctAnswerText').value;
+
+    let imgUrl = editingQuestion?.image_url || null;
+    let audUrl = editingQuestion?.audio_url || null;
+
+    if (uploadedFiles.image) imgUrl = await uploadToCloudinary(uploadedFiles.image);
+    if (uploadedFiles.audio) audUrl = await uploadToCloudinary(uploadedFiles.audio);
+
+    const questionData = {
+        exam_id: currentExam.id,
+        question_text: text,
+        question_type: type,
+        image_url: imgUrl,
+        audio_url: audUrl,
+        correct_answer_text: type === 'text' ? correctText : null
+    };
+
+    let resultQ;
+    if (qId) {
+        const { data } = await supabaseClient.from('questions').update(questionData).eq('id', qId).select();
+        resultQ = data[0];
+        await supabaseClient.from('options').delete().eq('question_id', qId);
+    } else {
+        const { data } = await supabaseClient.from('questions').insert([questionData]).select();
+        resultQ = data[0];
+    }
+
+    if (type === 'multiple_choice') {
+        const options = Array.from(document.querySelectorAll('.option-input')).map((input, idx) => ({
+            question_id: resultQ.id,
+            option_text: input.value,
+            is_correct: document.querySelector('input[name="correctOption"]:checked')?.value == idx
+        }));
+        await supabaseClient.from('options').insert(options);
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Guardar Pregunta';
+    await fetchQuestions();
+    showQuestionForm();
+});
+
+// Drag & Drop Setup
 function setupDragAndDrop() {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -225,32 +361,20 @@ function setupDragAndDrop() {
     const prompt = document.getElementById('dropZonePrompt');
 
     dropZone.addEventListener('click', () => fileInput.click());
-
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('drag-over');
-    });
-
-    ['dragleave', 'drop'].forEach(evt => {
-        dropZone.addEventListener(evt, () => dropZone.classList.remove('drag-over'));
-    });
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    ['dragleave', 'drop'].forEach(evt => dropZone.addEventListener(evt, () => dropZone.classList.remove('drag-over')));
 
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         handleFiles(e.dataTransfer.files);
     });
 
-    fileInput.addEventListener('change', (e) => {
-        handleFiles(e.target.files);
-    });
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
     function handleFiles(files) {
         Array.from(files).forEach(file => {
-            if (file.type.startsWith('image/')) {
-                uploadedFiles.image = file;
-            } else if (file.type.startsWith('audio/')) {
-                uploadedFiles.audio = file;
-            }
+            if (file.type.startsWith('image/')) uploadedFiles.image = file;
+            else if (file.type.startsWith('audio/')) uploadedFiles.audio = file;
         });
         updatePreview();
     }
@@ -260,88 +384,20 @@ function setupDragAndDrop() {
         if (uploadedFiles.image || uploadedFiles.audio) {
             prompt.classList.add('hidden');
             preview.classList.remove('hidden');
-
-            if (uploadedFiles.image) {
-                const img = document.createElement('div');
-                img.className = 'text-xs bg-primary/10 text-primary px-2 py-1 rounded-md';
-                img.innerHTML = `<i class="fas fa-image mr-1"></i> Imagen cargada`;
-                preview.appendChild(img);
-            }
-            if (uploadedFiles.audio) {
-                const aud = document.createElement('div');
-                aud.className = 'text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded-md';
-                aud.innerHTML = `<i class="fas fa-volume-up mr-1"></i> Audio cargado`;
-                preview.appendChild(aud);
-            }
+            if (uploadedFiles.image) preview.innerHTML += '<div class="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded">Imagen lista</div>';
+            if (uploadedFiles.audio) preview.innerHTML += '<div class="text-[10px] bg-green-500/10 text-green-600 px-2 py-1 rounded">Audio listo</div>';
         }
     }
-}
-
-async function handleQuestionSubmit(e) {
-    e.preventDefault();
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.textContent = 'Subiendo archivos...';
-
-    const questionText = document.getElementById('questionText').value;
-    const questionType = document.getElementById('questionType').value;
-
-    let imageUrl = null;
-    let audioUrl = null;
-
-    if (uploadedFiles.image) {
-        imageUrl = await uploadToCloudinary(uploadedFiles.image);
-    }
-    if (uploadedFiles.audio) {
-        audioUrl = await uploadToCloudinary(uploadedFiles.audio);
-    }
-
-    btn.textContent = 'Guardando datos...';
-
-    const { data: qData, error: qError } = await supabaseClient.from('questions').insert([{
-        exam_id: currentExamId,
-        question_text: questionText,
-        question_type: questionType,
-        image_url: imageUrl,
-        audio_url: audioUrl,
-        correct_answer_text: questionType === 'text' ? document.getElementById('correctAnswerText').value : null
-    }]).select();
-
-    if (qError) {
-        alert('Error: ' + qError.message);
-    } else if (questionType === 'multiple_choice') {
-        const options = Array.from(document.querySelectorAll('.option-input')).map((input, idx) => ({
-            question_id: qData[0].id,
-            option_text: input.value,
-            is_correct: document.querySelector(`input[name="correctOption"]:checked`).value == idx
-        }));
-
-        await supabaseClient.from('options').insert(options);
-    }
-
-    btn.disabled = false;
-    btn.textContent = 'Guardar Pregunta';
-    alert('Pregunta guardada correctamente');
-    renderQuestionForm(); // Reset for next question
 }
 
 async function uploadToCloudinary(file) {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    try {
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        const data = await res.json();
-        return data.secure_url;
-    } catch (err) {
-        console.error('Upload error:', err);
-        return null;
-    }
+    formData.append('upload_preset', 'vikingdevBdd');
+    const res = await fetch(`https://api.cloudinary.com/v1_1/de3n9pg8x/upload`, { method: 'POST', body: formData });
+    const data = await res.json();
+    return data.secure_url;
 }
 
-// Initial Fetch
-fetchData();
+init();
+setupDragAndDrop();

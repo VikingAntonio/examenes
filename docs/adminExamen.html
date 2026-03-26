@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administrar Exámenes - VikingDev</title>
+    <title>Administración Pro - VikingDev</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="css/styles.css">
@@ -21,117 +21,272 @@
         }
     </script>
 </head>
-<body class="bg-gray-50 text-gray-900 transition-colors duration-300">
-    <!-- Navbar -->
-    <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50 transition-colors duration-300">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <span class="text-2xl font-bold text-primary">VikingDev<span class="text-gray-500 dark:text-gray-400">Admin</span></span>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <a href="examenes.html" class="text-gray-600 dark:text-gray-300 hover:text-primary transition-colors">Ver Exámenes</a>
-                    <button id="themeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                        <i class="fas fa-moon dark:hidden"></i>
-                        <i class="fas fa-sun hidden dark:block"></i>
-                    </button>
-                </div>
+<body class="bg-gray-50 text-gray-900 transition-colors duration-300 min-h-screen">
+    <!-- Sidebar Navigation -->
+    <aside class="fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-50 transition-all duration-300 hidden lg:block">
+        <div class="p-6">
+            <span class="text-2xl font-bold text-primary">VikingDev<span class="text-gray-400">Pro</span></span>
+        </div>
+        <nav class="mt-6 px-4 space-y-2">
+            <button onclick="switchTab('dashboard')" class="tab-btn active w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all" data-tab="dashboard">
+                <i class="fas fa-chart-pie mr-3"></i> Dashboard
+            </button>
+            <button onclick="switchTab('exams')" class="tab-btn w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all" data-tab="exams">
+                <i class="fas fa-file-signature mr-3"></i> Mis Exámenes
+            </button>
+            <button onclick="switchTab('settings')" class="tab-btn w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all" data-tab="settings">
+                <i class="fas fa-layer-group mr-3"></i> Materias & Niveles
+            </button>
+            <div class="pt-8 pb-4">
+                <span class="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Acciones Rápidas</span>
             </div>
+            <button onclick="showCreateExam()" class="w-full flex items-center px-4 py-3 text-sm font-medium text-white bg-primary rounded-xl hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all">
+                <i class="fas fa-plus-circle mr-3"></i> Nuevo Examen
+            </button>
+        </nav>
+    </aside>
+
+    <!-- Mobile Nav -->
+    <nav class="lg:hidden bg-white dark:bg-gray-800 border-b dark:border-gray-700 p-4 sticky top-0 z-40">
+        <div class="flex justify-between items-center">
+            <span class="text-xl font-bold text-primary">VikingDev<span class="text-gray-400">Pro</span></span>
+            <button id="mobileMenuBtn" class="p-2 text-gray-500"><i class="fas fa-bars"></i></button>
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Sidebar / Quick Actions -->
-            <div class="lg:col-span-1 space-y-6">
-                <!-- Manage Subjects & Levels -->
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm animate-fade-in">
-                    <h2 class="text-lg font-semibold mb-4 flex items-center">
-                        <i class="fas fa-layer-group mr-2 text-primary"></i> Materias y Niveles
-                    </h2>
+    <!-- Main Content Area -->
+    <main class="lg:ml-64 p-4 lg:p-8">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8">
+            <h1 id="pageTitle" class="text-2xl font-bold">Dashboard</h1>
+            <div class="flex items-center space-x-4">
+                <a href="examenes.html" class="text-sm font-medium text-gray-500 hover:text-primary transition-colors">Vista Pública</a>
+                <button id="themeToggle" class="p-2.5 rounded-xl bg-white dark:bg-gray-800 shadow-sm border dark:border-gray-700 text-gray-500">
+                    <i class="fas fa-moon dark:hidden"></i>
+                    <i class="fas fa-sun hidden dark:block"></i>
+                </button>
+            </div>
+        </header>
 
-                    <div class="space-y-4">
-                        <!-- Add Subject -->
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Nueva Materia</label>
-                            <div class="flex">
-                                <input type="text" id="subjectInput" class="flex-1 px-4 py-2 border rounded-l-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600" placeholder="Ej: Matemáticas">
-                                <button id="addSubjectBtn" class="bg-primary text-white px-4 py-2 rounded-r-lg hover:bg-primary-hover transition-colors">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Add Level -->
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Nuevo Nivel</label>
-                            <div class="flex">
-                                <input type="text" id="levelInput" class="flex-1 px-4 py-2 border rounded-l-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600" placeholder="Ej: Básico">
-                                <button id="addLevelBtn" class="bg-primary text-white px-4 py-2 rounded-r-lg hover:bg-primary-hover transition-colors">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                        </div>
+        <!-- Tab: Dashboard -->
+        <section id="tab-dashboard" class="tab-content space-y-8 animate-fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border dark:border-gray-700">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-primary"><i class="fas fa-book fa-lg"></i></div>
+                        <span class="text-xs font-bold text-green-500 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-lg">Activo</span>
                     </div>
-
-                    <div class="mt-6 pt-6 border-t dark:border-gray-700">
-                        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Resumen</h3>
-                        <div class="grid grid-cols-2 gap-4 text-center">
-                            <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                                <span id="subjectCount" class="block text-2xl font-bold">0</span>
-                                <span class="text-xs text-gray-500">Materias</span>
-                            </div>
-                            <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                                <span id="levelCount" class="block text-2xl font-bold">0</span>
-                                <span class="text-xs text-gray-500">Niveles</span>
-                            </div>
-                        </div>
+                    <p class="text-gray-500 text-sm">Total Materias</p>
+                    <h3 id="subjectCount" class="text-3xl font-bold">0</h3>
+                </div>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border dark:border-gray-700">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-500"><i class="fas fa-layer-group fa-lg"></i></div>
+                        <span class="text-xs font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg">Estructura</span>
                     </div>
+                    <p class="text-gray-500 text-sm">Niveles Creados</p>
+                    <h3 id="levelCount" class="text-3xl font-bold">0</h3>
+                </div>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border dark:border-gray-700">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-500"><i class="fas fa-tasks fa-lg"></i></div>
+                        <span class="text-xs font-bold text-purple-500 bg-purple-50 dark:bg-purple-900/30 px-2 py-1 rounded-lg">Exámenes</span>
+                    </div>
+                    <p class="text-gray-500 text-sm">Exámenes Totales</p>
+                    <h3 id="examCount" class="text-3xl font-bold">0</h3>
                 </div>
             </div>
 
-            <!-- Main Content: Create Exams -->
-            <div class="lg:col-span-2 space-y-6">
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm animate-fade-in" style="animation-delay: 0.1s">
-                    <h2 class="text-xl font-bold mb-6 flex items-center">
-                        <i class="fas fa-file-signature mr-2 text-primary"></i> Crear Nuevo Examen
-                    </h2>
+            <!-- Recent Exams Preview -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 overflow-hidden">
+                <div class="p-6 border-b dark:border-gray-700 flex justify-between items-center">
+                    <h2 class="font-bold">Actividad Reciente</h2>
+                    <button onclick="switchTab('exams')" class="text-sm text-primary font-medium">Ver todos</button>
+                </div>
+                <div id="recentExamsList" class="divide-y dark:divide-gray-700">
+                    <!-- List items here -->
+                    <div class="p-12 text-center text-gray-400">Cargando datos...</div>
+                </div>
+            </div>
+        </section>
 
-                    <form id="examForm" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Título del Examen</label>
-                                <input type="text" id="examTitle" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Materia</label>
-                                <select id="examSubject" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
-                                    <option value="">Seleccionar Materia</option>
-                                </select>
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Nivel</label>
-                                <select id="examLevel" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
-                                    <option value="">Seleccionar Nivel</option>
-                                </select>
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Descripción (Opcional)</label>
-                                <input type="text" id="examDesc" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none dark:bg-gray-700 dark:border-gray-600">
-                            </div>
-                        </div>
+        <!-- Tab: Exams Management -->
+        <section id="tab-exams" class="tab-content hidden space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <div class="relative w-full max-w-md">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="examSearch" placeholder="Buscar examen..." class="w-full pl-12 pr-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-primary outline-none transition-all">
+                </div>
+                <button onclick="showCreateExam()" class="bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all flex items-center">
+                    <i class="fas fa-plus mr-2"></i> Nuevo
+                </button>
+            </div>
 
-                        <div class="pt-4">
-                            <button type="submit" class="w-full bg-primary text-white font-bold py-3 rounded-xl hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">
-                                Guardar y Agregar Preguntas
-                            </button>
-                        </div>
-                    </form>
+            <div id="fullExamsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Exam Cards will be injected here -->
+            </div>
+        </section>
+
+        <!-- Tab: Settings (Subjects/Levels) -->
+        <section id="tab-settings" class="tab-content hidden space-y-8 animate-fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Subject Manager -->
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border dark:border-gray-700">
+                    <h3 class="font-bold mb-6 flex items-center"><i class="fas fa-book mr-2 text-primary"></i> Gestionar Materias</h3>
+                    <div class="flex space-x-2 mb-6">
+                        <input type="text" id="subjectInput" placeholder="Nombre de materia..." class="flex-1 px-4 py-2.5 rounded-xl border dark:border-gray-700 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none">
+                        <button id="addSubjectBtn" class="bg-primary text-white px-4 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="subjectsList" class="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                        <!-- List of subjects with delete btn -->
+                    </div>
                 </div>
 
-                <!-- Questions Section (Hidden until exam is created) -->
-                <div id="questionsContainer" class="hidden space-y-6">
-                    <!-- Dynamic question list will appear here -->
+                <!-- Level Manager -->
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border dark:border-gray-700">
+                    <h3 class="font-bold mb-6 flex items-center"><i class="fas fa-layer-group mr-2 text-blue-500"></i> Gestionar Niveles</h3>
+                    <div class="flex space-x-2 mb-6">
+                        <input type="text" id="levelInput" placeholder="Nombre de nivel..." class="flex-1 px-4 py-2.5 rounded-xl border dark:border-gray-700 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none">
+                        <button id="addLevelBtn" class="bg-primary text-white px-4 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="levelsList" class="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                        <!-- List of levels with delete btn -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Modal/Overlay: Exam Form -->
+        <div id="examModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center hidden p-4">
+            <div class="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-fade-in">
+                <div class="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                    <h2 id="examModalTitle" class="text-xl font-bold">Crear Nuevo Examen</h2>
+                    <button onclick="closeExamModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times fa-lg"></i></button>
+                </div>
+                <form id="examForm" class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-sm font-bold text-gray-500 uppercase">Título</label>
+                            <input type="text" id="examTitle" required class="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-bold text-gray-500 uppercase">Materia</label>
+                            <select id="examSubject" required class="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none">
+                                <option value="">Seleccionar</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-bold text-gray-500 uppercase">Nivel</label>
+                            <select id="examLevel" required class="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none">
+                                <option value="">Seleccionar</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-bold text-gray-500 uppercase">Descripción</label>
+                            <input type="text" id="examDesc" class="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none">
+                        </div>
+                    </div>
+                    <div class="pt-4">
+                        <button type="submit" class="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:bg-primary-hover shadow-xl shadow-primary/30 transition-all">
+                            Continuar a Preguntas
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Section: Question Manager (Full Screen) -->
+        <div id="questionManager" class="hidden fixed inset-0 bg-gray-50 dark:bg-gray-900 z-[70] overflow-y-auto animate-fade-in">
+            <div class="max-w-7xl mx-auto p-4 lg:p-8">
+                <div class="flex justify-between items-center mb-8 bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border dark:border-gray-700">
+                    <div>
+                        <button onclick="closeQuestionManager()" class="text-sm font-bold text-gray-400 hover:text-primary mb-2 flex items-center">
+                            <i class="fas fa-arrow-left mr-2"></i> Volver al Dashboard
+                        </button>
+                        <h2 id="currentExamTitle" class="text-2xl font-bold text-primary">Gestionar Preguntas</h2>
+                        <p id="currentExamMeta" class="text-sm text-gray-500 mt-1"></p>
+                    </div>
+                    <button onclick="showQuestionForm()" class="bg-primary text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-primary/20 flex items-center">
+                        <i class="fas fa-plus mr-2"></i> Añadir Pregunta
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <!-- Left: Questions List -->
+                    <div class="lg:col-span-4 space-y-4">
+                        <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border dark:border-gray-700 overflow-hidden">
+                            <div class="p-6 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                                <h3 class="font-bold flex items-center"><i class="fas fa-list-ol mr-2 text-primary"></i> Preguntas</h3>
+                            </div>
+                            <div id="questionListSidebar" class="divide-y dark:divide-gray-700 max-h-[70vh] overflow-y-auto">
+                                <!-- List of questions in mini-cards -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Editor Area -->
+                    <div class="lg:col-span-8">
+                        <div id="questionFormArea" class="hidden bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border dark:border-gray-700 sticky top-8">
+                            <h3 id="qEditorTitle" class="text-xl font-bold mb-8">Nueva Pregunta</h3>
+                            <form id="questionForm" class="space-y-6">
+                                <input type="hidden" id="editQuestionId">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-bold text-gray-500 uppercase">Texto de la Pregunta</label>
+                                    <textarea id="questionText" required class="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none min-h-[120px]"></textarea>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-bold text-gray-500 uppercase">Tipo</label>
+                                        <select id="questionType" class="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none">
+                                            <option value="multiple_choice">Opción Múltiple</option>
+                                            <option value="text">Respuesta Abierta</option>
+                                        </select>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-bold text-gray-500 uppercase">Multimedia</label>
+                                        <div id="dropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center cursor-pointer hover:border-primary transition-all relative">
+                                            <input type="file" id="fileInput" class="hidden" accept="image/*,audio/*" multiple>
+                                            <div id="dropZonePrompt">
+                                                <i class="fas fa-cloud-upload-alt text-2xl text-gray-400 mb-2"></i>
+                                                <p class="text-[10px] text-gray-500">JPG, PNG o MP3</p>
+                                            </div>
+                                            <div id="filePreview" class="hidden mt-2 flex flex-wrap gap-2 justify-center"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="optionsContainer" class="space-y-4">
+                                    <label class="text-sm font-bold text-gray-500 uppercase block">Opciones de Respuesta</label>
+                                    <div id="optionsList" class="space-y-3"></div>
+                                    <button type="button" id="addOptionBtn" class="text-primary text-sm font-bold hover:underline flex items-center">
+                                        <i class="fas fa-plus-circle mr-1"></i> Añadir opción
+                                    </button>
+                                </div>
+
+                                <div id="textAnswerContainer" class="hidden space-y-2">
+                                    <label class="text-sm font-bold text-gray-500 uppercase">Respuesta Correcta</label>
+                                    <input type="text" id="correctAnswerText" class="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-700 focus:ring-2 focus:ring-primary outline-none">
+                                </div>
+
+                                <div class="pt-8 flex justify-end space-x-4 border-t dark:border-gray-700">
+                                    <button type="button" onclick="cancelQuestionEdit()" class="px-6 py-3 font-bold text-gray-500">Cancelar</button>
+                                    <button type="submit" id="saveQuestionBtn" class="bg-primary text-white px-10 py-3 rounded-xl font-bold shadow-xl shadow-primary/30 hover:scale-105 transition-all">Guardar Pregunta</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Empty State Editor -->
+                        <div id="emptyQuestionArea" class="flex flex-col items-center justify-center h-[500px] text-gray-400">
+                            <div class="p-8 bg-white dark:bg-gray-800 rounded-full mb-6 shadow-sm"><i class="fas fa-mouse-pointer fa-3x"></i></div>
+                            <p class="text-lg">Selecciona una pregunta para editarla</p>
+                            <p class="text-sm">O crea una nueva usando el botón de arriba</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -140,10 +295,26 @@
     <script src="js/config.js"></script>
     <script src="js/admin.js"></script>
     <script>
+        // Tab System
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active', 'bg-primary', 'text-white');
+                b.classList.add('text-gray-500', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
+            });
+
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            const activeBtn = document.querySelector(`[data-tab="${tabId}"]`);
+            if (activeBtn) {
+                activeBtn.classList.add('active', 'bg-primary', 'text-white');
+                activeBtn.classList.remove('text-gray-500', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
+            }
+
+            document.getElementById('pageTitle').textContent = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+        }
+
         // Theme Logic
         const themeToggle = document.getElementById('themeToggle');
-        const body = document.body;
-
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
         } else {
@@ -154,6 +325,9 @@
             document.documentElement.classList.toggle('dark');
             localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
         });
+
+        // Initialize with first tab
+        switchTab('dashboard');
     </script>
 </body>
 </html>
