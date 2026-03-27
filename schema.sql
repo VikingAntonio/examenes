@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS questions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     exam_id UUID REFERENCES exams(id) ON DELETE CASCADE,
     question_text TEXT NOT NULL,
-    question_type TEXT NOT NULL CHECK (question_type IN ('multiple_choice', 'text')),
+    question_type TEXT NOT NULL CHECK (question_type IN ('multiple_choice', 'text', 'sql_ordering')),
     image_url TEXT,
     audio_url TEXT,
     correct_answer_text TEXT, -- Used for 'text' type questions
@@ -40,11 +40,13 @@ CREATE TABLE IF NOT EXISTS questions (
 );
 
 -- Create options table (for multiple choice questions)
+-- Create options table (for multiple choice and ordering questions)
 CREATE TABLE IF NOT EXISTS options (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
     option_text TEXT NOT NULL,
     is_correct BOOLEAN DEFAULT FALSE,
+    position INTEGER DEFAULT 0, -- Used for ordering questions
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
