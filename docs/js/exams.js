@@ -46,13 +46,13 @@ function renderExams(exams) {
         <div class="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border dark:border-gray-700 card-hover group">
             <div class="flex justify-between items-start mb-6">
                 <span class="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-primary text-[10px] font-bold rounded-full uppercase tracking-wider">${esc(exam.subjects?.name)}</span>
-                <span class="text-xs font-bold text-gray-300">${esc(exam.levels?.name)}</span>
+                <span class="text-xs font-bold text-gray-300">${esc(exam.levels?.name || 'Sin Nivel')}</span>
             </div>
             <h3 class="text-xl font-bold mb-3 group-hover:text-primary transition-colors">${esc(exam.title)}</h3>
             <p class="text-sm text-gray-500 mb-8 line-clamp-2">${esc(exam.description || 'Sin descripción disponible.')}</p>
-            <button class="w-full py-4 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-2xl font-bold flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+            <a href="tomarExamen.html?id=${exam.id}" class="w-full py-4 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-2xl font-bold flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
                 Realizar Examen <i class="fas fa-arrow-right ml-2 text-xs"></i>
-            </button>
+            </a>
         </div>
     `).join('');
 }

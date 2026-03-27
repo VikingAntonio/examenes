@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realizar Examen - VikingDev</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-900 transition-colors duration-300 min-h-screen">
+    <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-50 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="examenes.html" class="mr-4 text-gray-400 hover:text-primary"><i class="fas fa-arrow-left"></i></a>
+                    <span id="examTitle" class="text-xl font-bold text-primary">Cargando examen...</span>
+                </div>
+                <div class="flex items-center">
+                    <button id="themeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:block"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-3xl mx-auto px-4 py-12">
+        <div id="quizContainer" class="space-y-8">
+            <!-- Loading State -->
+            <div class="text-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p class="text-gray-500">Preparando tus preguntas...</p>
+            </div>
+        </div>
+
+        <div id="resultContainer" class="hidden bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-xl border dark:border-gray-700 text-center animate-fade-in">
+            <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-trophy fa-2x"></i>
+            </div>
+            <h2 class="text-3xl font-bold mb-2">¡Examen Finalizado!</h2>
+            <p class="text-gray-500 mb-8">Has completado todas las preguntas del examen.</p>
+            <div class="text-5xl font-black text-primary mb-12" id="scoreDisplay">0/0</div>
+            <a href="examenes.html" class="inline-block bg-primary text-white px-10 py-4 rounded-2xl font-bold shadow-xl shadow-primary/30 hover:scale-105 transition-all">Volver al inicio</a>
+        </div>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/quiz.js"></script>
+    <script>
+        const themeToggle = document.getElementById('themeToggle');
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        });
+    </script>
+</body>
+</html>

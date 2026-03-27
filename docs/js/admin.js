@@ -331,52 +331,64 @@ function cancelQuestionEdit() {
 document.getElementById('questionForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const saveBtn = document.getElementById('saveQuestionBtn');
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Guardando...';
+    const originalText = saveBtn.textContent;
 
-    const qId = document.getElementById('editQuestionId').value;
-    const text = document.getElementById('questionText').value;
-    const type = document.getElementById('questionType').value;
-    const correctText = document.getElementById('correctAnswerText').value;
+    try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Guardando...';
 
-    let imgUrl = editingQuestion?.image_url || null;
-    let audUrl = editingQuestion?.audio_url || null;
+        const qId = document.getElementById('editQuestionId').value;
+        const text = document.getElementById('questionText').value;
+        const type = document.getElementById('questionType').value;
+        const correctText = document.getElementById('correctAnswerText').value;
 
-    if (uploadedFiles.image) imgUrl = await uploadToCloudinary(uploadedFiles.image);
-    if (uploadedFiles.audio) audUrl = await uploadToCloudinary(uploadedFiles.audio);
+        let imgUrl = editingQuestion?.image_url || null;
+        let audUrl = editingQuestion?.audio_url || null;
 
-    const questionData = {
-        exam_id: currentExam.id,
-        question_text: text,
-        question_type: type,
-        image_url: imgUrl,
-        audio_url: audUrl,
-        correct_answer_text: type === 'text' ? correctText : null
-    };
+        if (uploadedFiles.image) imgUrl = await uploadToCloudinary(uploadedFiles.image);
+        if (uploadedFiles.audio) audUrl = await uploadToCloudinary(uploadedFiles.audio);
 
-    let resultQ;
-    if (qId) {
-        const { data } = await supabaseClient.from('questions').update(questionData).eq('id', qId).select();
-        resultQ = data[0];
-        await supabaseClient.from('options').delete().eq('question_id', qId);
-    } else {
-        const { data } = await supabaseClient.from('questions').insert([questionData]).select();
-        resultQ = data[0];
+        const questionData = {
+            exam_id: currentExam.id,
+            question_text: text,
+            question_type: type,
+            image_url: imgUrl,
+            audio_url: audUrl,
+            correct_answer_text: type === 'text' ? correctText : null
+        };
+
+        let resultQ;
+        if (qId) {
+            const { data, error: qErr } = await supabaseClient.from('questions').update(questionData).eq('id', qId).select();
+            if (qErr) throw qErr;
+            resultQ = data[0];
+            const { error: oDelErr } = await supabaseClient.from('options').delete().eq('question_id', qId);
+            if (oDelErr) throw oDelErr;
+        } else {
+            const { data, error: qErr } = await supabaseClient.from('questions').insert([questionData]).select();
+            if (qErr) throw qErr;
+            resultQ = data[0];
+        }
+
+        if (type === 'multiple_choice') {
+            const options = Array.from(document.querySelectorAll('.option-input')).map((input, idx) => ({
+                question_id: resultQ.id,
+                option_text: input.value,
+                is_correct: document.querySelector('input[name="correctOption"]:checked')?.value == idx
+            }));
+            const { error: oInsErr } = await supabaseClient.from('options').insert(options);
+            if (oInsErr) throw oInsErr;
+        }
+
+        await fetchQuestions();
+        showQuestionForm();
+    } catch (error) {
+        console.error('Error al guardar pregunta:', error);
+        alert('Error al guardar: ' + (error.message || 'Error desconocido'));
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
     }
-
-    if (type === 'multiple_choice') {
-        const options = Array.from(document.querySelectorAll('.option-input')).map((input, idx) => ({
-            question_id: resultQ.id,
-            option_text: input.value,
-            is_correct: document.querySelector('input[name="correctOption"]:checked')?.value == idx
-        }));
-        await supabaseClient.from('options').insert(options);
-    }
-
-    saveBtn.disabled = false;
-    saveBtn.textContent = 'Guardar Pregunta';
-    await fetchQuestions();
-    showQuestionForm();
 });
 
 // Drag & Drop Setup
@@ -417,12 +429,18 @@ function setupDragAndDrop() {
 }
 
 async function uploadToCloudinary(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', 'vikingdevBdd');
-    const res = await fetch(`https://api.cloudinary.com/v1_1/de3n9pg8x/upload`, { method: 'POST', body: formData });
-    const data = await res.json();
-    return data.secure_url;
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', 'vikingdevBdd');
+        const res = await fetch(`https://api.cloudinary.com/v1_1/de3n9pg8x/upload`, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Fallo al subir archivo a Cloudinary');
+        const data = await res.json();
+        return data.secure_url;
+    } catch (error) {
+        console.error('Cloudinary Error:', error);
+        throw error;
+    }
 }
 
 init();
