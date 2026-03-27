@@ -4,7 +4,8 @@ const CLOUDINARY_CLOUD_NAME = 'de3n9pg8x';
 const CLOUDINARY_UPLOAD_PRESET = 'vikingdevBdd';
 
 // Initialize Supabase client
-const { createClient } = supabase;
-const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-window.supabaseClient = _supabase;
+if (!window.supabaseClient) {
+    const { createClient } = supabase;
+    const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window.supabaseClient = _supabase;
+}

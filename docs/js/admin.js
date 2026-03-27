@@ -307,8 +307,16 @@ function addOption(text = '', isCorrect = false) {
 
 function switchQuestionType() {
     const type = document.getElementById('questionType').value;
-    document.getElementById('optionsContainer').classList.toggle('hidden', type !== 'multiple_choice');
+    document.getElementById('optionsContainer').classList.toggle('hidden', type === 'text');
     document.getElementById('textAnswerContainer').classList.toggle('hidden', type !== 'text');
+
+    // For SQL ordering, the instructions should guide about the order
+    const optionsTitle = document.querySelector('#optionsContainer label');
+    if (type === 'sql_ordering') {
+        optionsTitle.textContent = 'Bloques de Código (En el orden correcto)';
+    } else {
+        optionsTitle.textContent = 'Opciones de Respuesta';
+    }
 }
 
 document.getElementById('questionType').addEventListener('change', switchQuestionType);
@@ -370,11 +378,12 @@ document.getElementById('questionForm').addEventListener('submit', async (e) => 
             resultQ = data[0];
         }
 
-        if (type === 'multiple_choice') {
+    if (type === 'multiple_choice' || type === 'sql_ordering') {
             const options = Array.from(document.querySelectorAll('.option-input')).map((input, idx) => ({
                 question_id: resultQ.id,
                 option_text: input.value,
-                is_correct: document.querySelector('input[name="correctOption"]:checked')?.value == idx
+                is_correct: type === 'multiple_choice' ? (document.querySelector('input[name="correctOption"]:checked')?.value == idx) : true,
+                position: idx
             }));
             const { error: oInsErr } = await supabaseClient.from('options').insert(options);
             if (oInsErr) throw oInsErr;

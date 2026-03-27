@@ -106,6 +106,58 @@ function renderQuestion() {
             optionsDiv.appendChild(btn);
         });
         card.appendChild(optionsDiv);
+    } else if (q.question_type === 'sql_ordering') {
+        // Clear card content for special layout
+        card.innerHTML = `
+            <div class="flex justify-between items-center mb-6">
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Pregunta ${currentIndex + 1} de ${questions.length} - Ordenamiento SQL</span>
+                <div class="w-32 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-primary" style="width: ${((currentIndex + 1) / questions.length) * 100}%"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 h-[500px]">
+                <div class="flex flex-col space-y-4">
+                    <div class="flex-1 rounded-2xl overflow-hidden border dark:border-gray-700 bg-gray-100 dark:bg-gray-900 relative">
+                        ${q.image_url ? `<img src="${q.image_url}" class="absolute inset-0 w-full h-full object-contain">` : '<div class="flex items-center justify-center h-full text-gray-500 italic">No hay imagen de referencia</div>'}
+                    </div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400 leading-relaxed">${esc(q.question_text)}</p>
+                </div>
+
+                <div class="flex flex-col h-full">
+                    <div class="bg-gray-100 dark:bg-gray-900/50 p-2 rounded-t-2xl border-x border-t dark:border-gray-700 flex items-center">
+                        <div class="flex space-x-1.5 px-2">
+                            <div class="w-2.5 h-2.5 rounded-full bg-red-400"></div>
+                            <div class="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
+                            <div class="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
+                        </div>
+                        <span class="text-[10px] font-mono text-gray-400 ml-2">query.sql</span>
+                    </div>
+                    <div id="sqlBlocks" class="flex-1 bg-gray-900 dark:bg-black p-4 rounded-b-2xl border-x border-b border-gray-800 space-y-2 overflow-y-auto">
+                        <!-- Blocks will be injected here -->
+                    </div>
+                    <button onclick="submitSqlOrdering()" class="mt-4 w-full bg-emerald-500 text-white py-4 rounded-2xl font-bold shadow-xl shadow-emerald-500/20 hover:scale-105 transition-all">Verificar Código</button>
+                </div>
+            </div>
+        `;
+
+        const sqlBlocks = card.querySelector('#sqlBlocks');
+        // Shuffle blocks
+        const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+
+        shuffled.forEach(opt => {
+            const block = document.createElement('div');
+            block.className = 'p-3 bg-gray-800 text-blue-300 font-mono text-sm rounded-lg cursor-move border border-gray-700 hover:border-primary transition-colors select-none';
+            block.dataset.id = opt.id;
+            block.textContent = opt.option_text;
+            sqlBlocks.appendChild(block);
+        });
+
+        new Sortable(sqlBlocks, {
+            animation: 150,
+            ghostClass: 'opacity-50'
+        });
+
     } else {
         const inputDiv = document.createElement('div');
         inputDiv.className = 'space-y-4 mb-8';
@@ -121,7 +173,51 @@ function renderQuestion() {
 
 function selectAnswer(optionId, isCorrect) {
     userAnswers.push({ questionId: questions[currentIndex].id, isCorrect });
-    next();
+
+    // Feedback animation
+    const card = document.querySelector('#quizContainer > div');
+    if (isCorrect) {
+        card.classList.add('ring-4', 'ring-emerald-500', 'transition-all');
+    } else {
+        card.classList.add('ring-4', 'ring-red-500', 'transition-all');
+    }
+
+    setTimeout(() => {
+        next();
+    }, 600);
+}
+
+function submitSqlOrdering() {
+    const blocks = document.querySelectorAll('#sqlBlocks > div');
+    const currentOrder = Array.from(blocks).map(b => b.dataset.id);
+    const correctOrder = questions[currentIndex].options
+        .sort((a, b) => (a.position || 0) - (b.position || 0))
+        .map(o => o.id);
+
+    const isCorrect = JSON.stringify(currentOrder) === JSON.stringify(correctOrder);
+
+    const container = document.getElementById('sqlBlocks');
+    if (isCorrect) {
+        container.classList.add('ring-2', 'ring-emerald-500');
+        setTimeout(() => {
+            userAnswers.push({ questionId: questions[currentIndex].id, isCorrect: true });
+            next();
+        }, 800);
+    } else {
+        container.classList.add('ring-2', 'ring-red-500');
+        container.classList.add('animate-shake');
+        setTimeout(() => {
+            container.classList.remove('ring-2', 'ring-red-500', 'animate-shake');
+        }, 800);
+        // We don't push and next here, let user try again or we can fail it
+        // User request implied immediate feedback, let's just fail if wrong for now to move on
+        // but typically ordering allows retries until submit.
+        // For a test, we fail it and move on.
+        userAnswers.push({ questionId: questions[currentIndex].id, isCorrect: false });
+        setTimeout(() => {
+            next();
+        }, 1000);
+    }
 }
 
 function submitTextAnswer() {
