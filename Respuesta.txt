@@ -1,0 +1,9 @@
+Para elegir la respuesta correcta de cada pregunta:
+
+1. En la sección "OPCIONES DE RESPUESTA" de cada pregunta, verás una lista de las opciones que has escrito.
+2. A la derecha de cada opción, hay un círculo (botón de opción o radio button).
+3. Simplemente haz clic en el círculo correspondiente a la respuesta que quieres marcar como correcta.
+4. El círculo seleccionado se rellenará de color azul, indicando que esa es la respuesta correcta para esa pregunta de opción múltiple.
+5. Si la pregunta es de "Respuesta Abierta", simplemente escribe la respuesta correcta en el campo de texto que aparecerá abajo.
+
+Recuerda siempre hacer clic en "Guardar Pregunta" para salvar los cambios.
